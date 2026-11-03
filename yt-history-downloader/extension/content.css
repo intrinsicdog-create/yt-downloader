@@ -1,0 +1,19 @@
+#ythd-panel {
+  position: fixed; right: 16px; bottom: 16px; z-index: 99999;
+  width: 250px; padding: 12px; border-radius: 12px;
+  background: #212121; color: #fff; font: 13px/1.4 Roboto, Arial, sans-serif;
+  box-shadow: 0 4px 20px rgba(0,0,0,.5);
+}
+#ythd-panel .ythd-title { font-weight: 700; margin-bottom: 8px; }
+#ythd-panel .ythd-row { display: flex; align-items: center; gap: 6px; margin-bottom: 8px; }
+#ythd-panel label { display: flex; align-items: center; gap: 6px; width: 100%; justify-content: space-between; }
+#ythd-panel select { background: #3a3a3a; color: #fff; border: 0; border-radius: 6px; padding: 4px 6px; }
+#ythd-panel button { background: #3a3a3a; color: #fff; border: 0; border-radius: 6px; padding: 5px 9px; cursor: pointer; }
+#ythd-panel button:hover { background: #4a4a4a; }
+#ythd-panel .ythd-go { width: 100%; background: #3ea6ff; color: #000; font-weight: 700; padding: 8px; }
+#ythd-panel .ythd-go[disabled] { opacity: .4; cursor: not-allowed; }
+#ythd-panel .ythd-count { margin-left: auto; opacity: .8; }
+#ythd-panel .ythd-status { margin-top: 8px; white-space: pre-line; opacity: .9; word-break: break-word; }
+#ythd-panel .ythd-status.ythd-error { color: #ff7b7b; }
+.ythd-cb { position: absolute; top: 6px; left: 6px; z-index: 50; width: 22px; height: 22px; cursor: pointer; accent-color: #3ea6ff; }
+.ythd-badge { position: absolute; top: 6px; left: 34px; z-index: 50; padding: 2px 8px; border-radius: 10px; background: rgba(0,0,0,.8); color: #fff; font: 12px Roboto, Arial, sans-serif; }
