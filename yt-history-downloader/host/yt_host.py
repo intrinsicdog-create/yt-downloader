@@ -7,11 +7,13 @@ followed by UTF-8 JSON. NEVER print to stdout here, it is the message channel.
 
 Requires: Python 3.8+. yt-dlp is looked up in ./bin, then PATH, then `python -m yt_dlp`.
 """
+import itertools
 import json
 import os
 import queue
 import re
 import shutil
+import signal
 import struct
 import subprocess
 import sys
@@ -59,7 +61,8 @@ except (TypeError, ValueError):
 jobs = {}  # video id -> {title, status, progress, error}
 lock = threading.Lock()
 work = queue.Queue()
-procs = set()  # running yt-dlp processes, terminated when the browser goes away
+procs = {}  # video id -> running yt-dlp process
+gen_counter = itertools.count(1)  # tells a re-queued job apart from its stale queue entry
 ready = threading.Event()  # set once the optional yt-dlp self-update finished
 
 
@@ -106,6 +109,36 @@ def maintenance():
 
 
 # ---------- downloads ----------
+def kill_tree(p):
+    """Stop yt-dlp and anything it started (ffmpeg, or the PyInstaller child)."""
+    try:
+        if IS_WIN:
+            subprocess.run(
+                ["taskkill", "/PID", str(p.pid), "/T", "/F"],
+                stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                creationflags=0x08000000,
+            )
+        else:
+            os.killpg(os.getpgid(p.pid), signal.SIGTERM)
+    except Exception:  # noqa: BLE001
+        try:
+            p.terminate()
+        except Exception:  # noqa: BLE001
+            pass
+
+
+def remove_partials(vid):
+    """Delete the half-downloaded files of a cancelled video (finished files are never touched)."""
+    tag = f"[{vid}]"
+    try:
+        for f in OUT_DIR.iterdir():
+            n = f.name
+            if tag in n and (n.endswith((".part", ".ytdl")) or ".part-Frag" in n):
+                f.unlink()
+    except Exception as e:  # noqa: BLE001
+        log(f"cleanup for {vid} failed: {e}")
+
+
 def set_job(vid, **kw):
     with lock:
         jobs.setdefault(vid, {}).update(kw)
@@ -134,7 +167,7 @@ def build_cmd(vid, fmt, quality):
 
 
 def run_job(vid, fmt, quality):
-    set_job(vid, status="downloading", progress=0, error="")
+    # the worker already moved this job to "downloading" under the lock
     last = ""
     tail = []
     try:
@@ -144,9 +177,13 @@ def run_job(vid, fmt, quality):
             stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
             text=True, errors="replace",
             creationflags=0x08000000 if IS_WIN else 0,  # no console window on Windows
+            start_new_session=not IS_WIN,  # own process group, so a cancel can stop the whole tree
         )
         with lock:
-            procs.add(p)
+            procs[vid] = p
+            cancelled = jobs.get(vid, {}).get("status") == "cancelled"
+        if cancelled:  # cancelled in the instant between starting and registering
+            kill_tree(p)
         for line in p.stdout:
             line = line.strip()
             if line:
@@ -157,23 +194,38 @@ def run_job(vid, fmt, quality):
                 set_job(vid, progress=float(m.group(1)))
         p.wait()
         with lock:
-            procs.discard(p)
-        if p.returncode == 0:
+            procs.pop(vid, None)
+            cancelled = jobs.get(vid, {}).get("status") == "cancelled"
+        if cancelled:
+            remove_partials(vid)
+        elif p.returncode == 0:
             set_job(vid, status="done", progress=100)
         else:
             log(f"job {vid} failed (exit {p.returncode}):\n  " + "\n  ".join(tail))
             set_job(vid, status="error", error=last[:300])
     except Exception as e:  # noqa: BLE001
         log(f"job {vid} crashed: {e}")
-        set_job(vid, status="error", error=str(e))
+        with lock:
+            procs.pop(vid, None)
+        if jobs.get(vid, {}).get("status") != "cancelled":
+            set_job(vid, status="error", error=str(e))
 
 
 def worker():
     ready.wait()
     while True:
-        vid, fmt, quality = work.get()
-        run_job(vid, fmt, quality)
-        work.task_done()
+        vid, fmt, quality, gen = work.get()
+        try:
+            with lock:
+                j = jobs.get(vid)
+                # skip stale entries: cancelled while queued, or replaced by a newer queue entry
+                go = bool(j) and j.get("gen") == gen and j.get("status") == "queued"
+                if go:
+                    j.update(status="downloading", progress=0, error="")
+            if go:
+                run_job(vid, fmt, quality)
+        finally:
+            work.task_done()
 
 
 def start_downloads(req):
@@ -189,16 +241,37 @@ def start_downloads(req):
     queued = 0
     with lock:
         # a new batch clears the finished jobs of the previous one
-        for v in [v for v, j in jobs.items() if j.get("status") in ("done", "error")]:
+        for v in [v for v, j in jobs.items() if j.get("status") in ("done", "error", "cancelled")]:
             del jobs[v]
         for it in items:
             vid = str(it.get("id", "")) if isinstance(it, dict) else ""
             if not ID_RE.match(vid) or vid in jobs:  # invalid, or already queued/running
                 continue
-            jobs[vid] = {"title": str(it.get("title", ""))[:200], "status": "queued", "progress": 0, "error": ""}
-            work.put((vid, fmt, quality))
+            gen = next(gen_counter)
+            jobs[vid] = {"title": str(it.get("title", ""))[:200], "status": "queued", "progress": 0, "error": "", "gen": gen}
+            work.put((vid, fmt, quality, gen))
             queued += 1
     return {"queued": queued}
+
+
+def cancel_jobs(req):
+    """Cancel the given video ids, or every queued/running job when no ids are given."""
+    ids = req.get("ids")
+    if ids is not None and not isinstance(ids, list):
+        raise ValueError("Bad request")
+    n = 0
+    with lock:
+        targets = list(jobs) if ids is None else [str(i) for i in ids]
+        for vid in targets:
+            j = jobs.get(vid)
+            if not j or j.get("status") not in ("queued", "downloading"):
+                continue
+            j.update(status="cancelled", error="")
+            n += 1
+            p = procs.get(vid)
+            if p:
+                kill_tree(p)
+    return {"cancelled": n}
 
 
 def status():
@@ -211,6 +284,8 @@ def handle(msg):
     kind = msg.get("type")
     if kind == "download":
         return start_downloads(msg.get("payload") or {})
+    if kind == "cancel":
+        return cancel_jobs(msg.get("payload") or {})
     if kind == "status":
         return status()
     if kind == "ping":
@@ -261,11 +336,8 @@ def main():
     finally:
         # Browser went away: stop children (partial .part files resume next time).
         with lock:
-            for p in list(procs):
-                try:
-                    p.terminate()
-                except Exception:  # noqa: BLE001
-                    pass
+            for p in list(procs.values()):
+                kill_tree(p)
 
 
 if __name__ == "__main__":

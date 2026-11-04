@@ -1,19 +1,110 @@
+/* ---------- Panel ---------- */
 #ythd-panel {
   position: fixed; right: 16px; bottom: 16px; z-index: 99999;
   width: 250px; padding: 12px; border-radius: 12px;
   background: #212121; color: #fff; font: 13px/1.4 Roboto, Arial, sans-serif;
   box-shadow: 0 4px 20px rgba(0,0,0,.5);
+  transition: opacity .25s ease, transform .25s ease, visibility 0s;
+}
+/* hidden = off the history page; animates out, then becomes unreachable */
+#ythd-panel.ythd-hidden {
+  opacity: 0; transform: translateY(16px); visibility: hidden; pointer-events: none;
+  transition: opacity .2s ease, transform .2s ease, visibility 0s .2s;
 }
 #ythd-panel .ythd-title { font-weight: 700; margin-bottom: 8px; }
 #ythd-panel .ythd-row { display: flex; align-items: center; gap: 6px; margin-bottom: 8px; }
 #ythd-panel label { display: flex; align-items: center; gap: 6px; width: 100%; justify-content: space-between; }
 #ythd-panel select { background: #3a3a3a; color: #fff; border: 0; border-radius: 6px; padding: 4px 6px; }
-#ythd-panel button { background: #3a3a3a; color: #fff; border: 0; border-radius: 6px; padding: 5px 9px; cursor: pointer; }
+#ythd-panel button {
+  background: #3a3a3a; color: #fff; border: 0; border-radius: 6px; padding: 5px 9px; cursor: pointer;
+  transition: background-color .15s ease, transform .1s ease, opacity .2s ease;
+}
 #ythd-panel button:hover { background: #4a4a4a; }
+#ythd-panel button:active { transform: scale(.96); }
+#ythd-panel button[hidden] { display: none; }
 #ythd-panel .ythd-go { width: 100%; background: #3ea6ff; color: #000; font-weight: 700; padding: 8px; }
+#ythd-panel .ythd-go:hover { background: #65b8ff; }
 #ythd-panel .ythd-go[disabled] { opacity: .4; cursor: not-allowed; }
+#ythd-panel .ythd-go.ythd-pulse { animation: ythd-pulse .5s ease; }
 #ythd-panel .ythd-count { margin-left: auto; opacity: .8; }
+#ythd-panel .ythd-num { display: inline-block; min-width: 1.2em; text-align: right; font-variant-numeric: tabular-nums; }
 #ythd-panel .ythd-status { margin-top: 8px; white-space: pre-line; opacity: .9; word-break: break-word; }
 #ythd-panel .ythd-status.ythd-error { color: #ff7b7b; }
-.ythd-cb { position: absolute; top: 6px; left: 6px; z-index: 50; width: 22px; height: 22px; cursor: pointer; accent-color: #3ea6ff; }
-.ythd-badge { position: absolute; top: 6px; left: 34px; z-index: 50; padding: 2px 8px; border-radius: 10px; background: rgba(0,0,0,.8); color: #fff; font: 12px Roboto, Arial, sans-serif; }
+
+/* overall progress: collapsed until a batch exists */
+#ythd-panel .ythd-overall {
+  max-height: 0; opacity: 0; overflow: hidden; margin-top: 0;
+  transition: max-height .3s ease, opacity .3s ease, margin-top .3s ease;
+}
+#ythd-panel .ythd-overall.ythd-open { max-height: 70px; opacity: 1; margin-top: 8px; }
+#ythd-panel .ythd-track { height: 6px; border-radius: 3px; background: #3a3a3a; overflow: hidden; }
+#ythd-panel .ythd-fill {
+  height: 100%; background: #3ea6ff; transform-origin: left; transform: scaleX(0);
+  transition: transform 1.5s linear; /* polls arrive every 1.5s, so this reads as continuous */
+}
+#ythd-panel .ythd-overall-row { display: flex; align-items: center; justify-content: space-between; margin-top: 6px; }
+#ythd-panel .ythd-pct { opacity: .8; font-variant-numeric: tabular-nums; }
+#ythd-panel .ythd-cancel-all { background: #5a2a2a; padding: 3px 9px; }
+#ythd-panel .ythd-cancel-all:hover { background: #7a3535; }
+
+/* ---------- Video cards ---------- */
+.ythd-cb {
+  position: absolute; top: 6px; left: 6px; z-index: 50; width: 22px; height: 22px;
+  cursor: pointer; accent-color: #3ea6ff;
+}
+.ythd-cb.ythd-pop { animation: ythd-pop .25s ease; }
+
+.ythd-badge {
+  position: absolute; top: 6px; left: 34px; z-index: 50;
+  display: flex; align-items: center; gap: 6px;
+  padding: 2px 8px; border-radius: 10px; background: rgba(0,0,0,.8); color: #fff;
+  font: 12px Roboto, Arial, sans-serif;
+  transition: background-color .3s ease;
+}
+.ythd-badge[data-state="done"] { background: rgba(30,140,70,.92); }
+.ythd-badge[data-state="error"] { background: rgba(190,50,50,.92); }
+.ythd-badge[data-state="cancelled"] { background: rgba(90,90,90,.92); }
+.ythd-badge.ythd-enter { animation: ythd-enter .25s ease; }
+.ythd-badge.ythd-flip { animation: ythd-flip .35s ease; }
+.ythd-badge.ythd-flip[data-state="error"] { animation: ythd-shake .4s ease; }
+
+.ythd-x {
+  background: transparent; border: 0; color: #fff; cursor: pointer;
+  font-size: 12px; line-height: 1; padding: 0 2px; opacity: .75;
+  transition: opacity .15s ease, color .15s ease, transform .1s ease;
+}
+.ythd-x:hover { opacity: 1; color: #ff7b7b; }
+.ythd-x:active { transform: scale(.85); }
+.ythd-x[hidden] { display: none; }
+
+/* thin per-video progress bar along the bottom edge of the card */
+.ythd-bar {
+  position: absolute; left: 0; right: 0; bottom: 0; height: 3px; z-index: 50;
+  background: rgba(255,255,255,.15); overflow: hidden; pointer-events: none;
+}
+.ythd-bar-fill {
+  height: 100%; background: #3ea6ff; transform-origin: left; transform: scaleX(0);
+  transition: transform 1.5s linear;
+}
+.ythd-bar[data-state="done"] .ythd-bar-fill { background: #2ecc71; transition: transform .4s ease; }
+.ythd-bar.ythd-notrans .ythd-bar-fill { transition: none; }
+
+/* ---------- Keyframes (transform/opacity only, so scrolling stays smooth) ---------- */
+@keyframes ythd-pop { 0% { transform: scale(1); } 50% { transform: scale(1.35); } 100% { transform: scale(1); } }
+@keyframes ythd-pulse { 0% { transform: scale(1); } 40% { transform: scale(1.04); } 100% { transform: scale(1); } }
+@keyframes ythd-enter { from { opacity: 0; transform: translateX(-6px); } to { opacity: 1; transform: none; } }
+@keyframes ythd-flip {
+  0% { transform: scale(.85); opacity: .5; } 60% { transform: scale(1.1); opacity: 1; } 100% { transform: scale(1); }
+}
+@keyframes ythd-shake {
+  0%, 100% { transform: translateX(0); } 20% { transform: translateX(-4px); }
+  40% { transform: translateX(4px); } 60% { transform: translateX(-3px); } 80% { transform: translateX(3px); }
+}
+
+/* respect the OS "reduce motion" setting */
+@media (prefers-reduced-motion: reduce) {
+  #ythd-panel, #ythd-panel *, .ythd-cb, .ythd-badge, .ythd-x, .ythd-bar-fill {
+    animation: none !important;
+    transition: none !important;
+  }
+}

@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "YT History Downloader",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Select videos on your YouTube history page and download them as video or audio using a local yt-dlp helper.",
   "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAs8Xyx5+NB12ULQ9qTRicXiD+qE/X4NDE2ivI3pkuepiIWZk4sX6OlGLDbomDfEg11rlTQ2Q2QJ+ukQCNriFGGklWkwOE8XgXOhFiv7lgQeOOrRJ8vDnWhOk/WNueKoa0xXX/fk+fjnlsFjm8VBLFPbkY3SyrDltL4yF5olR4rVbkn9WCB+7aPQcEsrSCdukgX3qUaxDq7KTt5FLro6P3Y7VNURbwpwhdAb8RbmfwrrBnqPskN1gUlgAPnLdY2W1bZF67Ntd7YL6Cl1caTULiyb4VZDgts5aos0OKhvmhI1wvDUkRpvMTH1wIYe0+gIp+ihHsOm+pJm6DnyAxM0UiWQIDAQAB",
   "permissions": [

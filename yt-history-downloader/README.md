@@ -8,6 +8,14 @@ Two parts:
 
 Works with Chrome, Chromium, Brave, Edge, Opera and Vivaldi. Firefox is not supported yet.
 
+## Features
+
+- Checkboxes on every video in your history, plus **Select all** / **Clear**
+- MP4 (up to best available), MP3 or M4A, with a quality choice
+- Live progress: a bar on each video, a status badge, and an overall progress bar in the panel
+- **Cancel** a single download with the ✕ on its badge, or everything with **Cancel all**; partial files of cancelled downloads are cleaned up
+- Smooth animations that follow your OS "reduce motion" setting
+
 ## Install
 
 You need **Python 3.8+** and **ffmpeg**. The installer can download yt-dlp and a known-good ffmpeg for you.
@@ -79,6 +87,7 @@ Re-running the installer is safe: it skips yt-dlp and ffmpeg if they are already
 1. Open https://www.youtube.com/feed/history while logged in.
 2. Tick the videos you want (or **Select all**; scroll first to load more).
 3. Pick a format and quality, press **Download**.
+4. Changed your mind? Click the ✕ on a video's badge to cancel it, or **Cancel all** in the panel.
 
 Files go to `Downloads/YT-Downloads` in your home folder. The helper only runs while the browser is open; closing it stops running downloads, and unfinished files resume next time.
 
@@ -98,7 +107,7 @@ Helper data folder:
 ## Updating and uninstalling
 
 - yt-dlp updates itself at most once a day (the bundled binary only).
-- To update the helper itself: get the latest version of the repo and run the installer again (`python install.py` on Windows, `python3 install.py` elsewhere).
+- To update: get the latest version of the repo, run the installer again (`python install.py` on Windows, `python3 install.py` elsewhere; it only refreshes the helper and skips yt-dlp/ffmpeg if they're already installed), then click the reload icon for the extension on your browser's extensions page.
 - Uninstall: run the installer with `--uninstall`, then remove the extension in your browser.
 
 ## Troubleshooting
